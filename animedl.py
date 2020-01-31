@@ -1,19 +1,20 @@
+import urllib.request
 from webbrowser import open as wbopen
+from urllib.error import HTTPError as HTTPError
 from time import sleep
 import os
 import argparse
 import sqlite3
 
-def findEpNum(animeName):
-	cur.execute("SELECT num FROM anime WHERE name=?", (animeName,))
-	return int(cur.fetchall()[0][0])
-
-
-def downloadNotCompleted():
+def downloadIsNotCompleted():
 	for fname in os.listdir("C:\\Users\\Utente\\Downloads"):
 		if fname.endswith(".part") or fname.endswith(".crdownload"):
 			return 1
 	return 0
+
+def findEpNum(animeName):
+	cur.execute("SELECT num FROM anime WHERE name=?", (animeName,))
+	return int(cur.fetchall()[0][0])
 
 def animeInsert(name):
 	num=input("Inserire il numero dell'ultimo episodio scaricato\n")
@@ -21,7 +22,7 @@ def animeInsert(name):
 	cur.execute("INSERT INTO anime (name, num, link) VALUES (?, ?, ?)", (name, num, link))
 	db.commit()
 
-db=sqlite3.connect("C:\\Users\\Utente\\Desktop\\anime.db")
+db=sqlite3.connect("C:\\Users\\Utente\\anime.db")
 cur=db.cursor()
 
 parser=argparse.ArgumentParser()
@@ -43,9 +44,7 @@ except IndexError:
 		animeInsert(animeName)
 	quit()
 
-initialFileNum=len(os.listdir("C:\\Users\\Utente\\Downloads"))
 epNum=findEpNum(animeName)
-initialEpNum=epNum
 desEpNum=epNum+numEp
 index=string.find("Ep_")+3
 while(epNum<desEpNum):
@@ -54,22 +53,19 @@ while(epNum<desEpNum):
 	if(len(epNumStr)==1):
 		epNumStr='0'+epNumStr
 	string=string[:index] + epNumStr + string[-12:]
-	wbopen(string)
-	sleep(10)
-	while(downloadNotCompleted()):
-		pass
-	sleep(1)
-	if initialFileNum+(epNum-initialEpNum) == len(os.listdir("C:\\Users\\Utente\\Downloads")):
+	try:
+		urllib.request.urlopen(string)
+		wbopen(string)
+		sleep(5)
 		cur.execute("UPDATE anime SET num=? WHERE name=?", (epNum, animeName))
 		db.commit()
-
+	except HTTPError:
+		print("Episodio non esistente o link anime modificato")
+		pass
+	else:
+		while(downloadIsNotCompleted()):
+			pass
+		print(str(animeName)+"-"+str(epNum), "scaricato correttamente")
 
 if db:
 	db.close()
-
-"""
-Cose da aggiungere:
- - database
- - gui
- - file .exe
-"""
